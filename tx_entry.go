@@ -431,9 +431,18 @@ func (Transaction *TXENTRY) Bytes() []byte {
 	return bytes
 }
 
-// return sha256 of transaction bytes including nonce
-func (Transaction *TXENTRY) Hash() []byte {
+// HashID returns sha256 of transaction bytes excluding the ID field
+func (Transaction *TXENTRY) HashID() []byte {
+	bytes := Transaction.Bytes()
+	// Calculate length up to ID field (total length - HASHLEN)
+	lenUpToId := len(bytes) - HASHLEN
 	hash := sha256.New()
-	hash.Write(Transaction.Bytes()[:HASHLEN])
+	hash.Write(bytes[:lenUpToId])
 	return hash.Sum(nil)
+}
+
+// Hash returns sha256 of transaction bytes excluding the ID field
+// This is kept for backward compatibility and now calls HashID
+func (Transaction *TXENTRY) Hash() []byte {
+	return Transaction.HashID()
 }
