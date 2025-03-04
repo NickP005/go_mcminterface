@@ -16,7 +16,7 @@ go get github.com/NickP005/go_mcminterface
 These are the primary functions you should use as they implement consensus mechanisms by querying multiple nodes:
 
 #### LoadSettings
-```go
+<!-- ```go -->
 func LoadSettings(path string) (SettingsType)
 ```
 Loads configuration from a settings file. Must be called before any other operations.
