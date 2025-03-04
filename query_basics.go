@@ -103,7 +103,7 @@ func (m *TX) Deserialize(bytes []byte) {
 	copy(m.Pblockhash[:], bytes[58:90])
 	copy(m.Weight[:], bytes[90:122])
 	copy(m.Len[:], bytes[122:124])
-	len_buffer := binary.LittleEndian.Uint16(m.Len[:])
+	len_buffer := int(binary.LittleEndian.Uint16(m.Len[:]))
 	m.Buffer = make([]byte, len_buffer)
 	copy(m.Buffer[:], bytes[124:124+len_buffer])
 	copy(m.Crc16[:], bytes[124+len_buffer:124+len_buffer+2])
@@ -233,8 +233,8 @@ func (m *SocketData) recvTX() error {
 		return fmt.Errorf("received less than 124 bytes")
 	}
 	// Now read the rest of the bytes
-	length := binary.LittleEndian.Uint16(buf[122:124]) + 4
-	buf = append(buf, make([]byte, int(length))...)
+	length := int(binary.LittleEndian.Uint16(buf[122:124])) + 4
+	buf = append(buf, make([]byte, length)...)
 	_, err = io.ReadFull(m.Conn, buf[TX_UP_TO_LEN:])
 	if err != nil {
 		fmt.Println("Error reading:", err)
@@ -292,7 +292,7 @@ func (m *SocketData) recvFile() ([]byte, error) {
 		}
 
 		// Bytes received in len
-		len := binary.LittleEndian.Uint16(m.recv_tx.Len[:])
+		len := int(binary.LittleEndian.Uint16(m.recv_tx.Len[:]))
 
 		// Get the bytes
 		file = append(file, m.recv_tx.serialize()[124:124+len]...)
