@@ -1,6 +1,7 @@
 package go_mcminterface
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -372,7 +373,36 @@ func (Transaction *TXENTRY) GetDestinations() []MDST {
 }
 
 func (Transaction *TXENTRY) AddDestination(dst MDST) {
-	Transaction.Dat.Mdst = append(Transaction.Dat.Mdst, dst)
+	// Find the correct position to insert the new destination
+	pos := 0
+	for i, existing := range Transaction.Dat.Mdst {
+		// Compare tags first
+		tagCompare := bytes.Compare(dst.Tag[:], existing.Tag[:])
+		if tagCompare < 0 {
+			// New tag is less than existing tag, insert here
+			break
+		} else if tagCompare == 0 {
+			// If tags are equal, compare references
+			refCompare := bytes.Compare(dst.Ref[:], existing.Ref[:])
+			if refCompare < 0 {
+				// New reference is less than existing reference, insert here
+				break
+			}
+		}
+		pos = i + 1
+	}
+
+	// Insert the destination at the correct position
+	if pos >= len(Transaction.Dat.Mdst) {
+		// Append to the end if it's the largest
+		Transaction.Dat.Mdst = append(Transaction.Dat.Mdst, dst)
+	} else {
+		// Insert at the determined position
+		Transaction.Dat.Mdst = append(Transaction.Dat.Mdst[:pos], append([]MDST{dst}, Transaction.Dat.Mdst[pos:]...)...)
+	}
+
+	// Update the destination count in the transaction header
+	Transaction.SetDestinationCount(uint8(len(Transaction.Dat.Mdst)))
 }
 
 func (Transaction *TXENTRY) GetWotsSignature() []byte {
