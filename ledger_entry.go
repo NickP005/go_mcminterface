@@ -70,12 +70,16 @@ func (l *Ledger) SortAddresses() {
 
 // SearchByAddressPrefix searches for entries with an address starting with the given prefix
 // prefix can be any length from 1 to ADDR_LEN bytes
-func (l *Ledger) SearchByAddressPrefix(prefix []byte) []LedgerEntry {
+// Returns a new Ledger containing only the matching entries
+func (l *Ledger) SearchByAddressPrefix(prefix []byte) *Ledger {
 	if len(prefix) == 0 || len(prefix) > ADDR_LEN {
-		return nil
+		return &Ledger{Size: 0, Entries: []LedgerEntry{}, IsBalanceSorted: l.IsBalanceSorted, IsAddressSorted: l.IsAddressSorted}
 	}
 
-	var results []LedgerEntry
+	result := &Ledger{
+		IsBalanceSorted: l.IsBalanceSorted,
+		IsAddressSorted: l.IsAddressSorted,
+	}
 
 	// If address sorted, we can do a binary search to find the first match
 	if l.IsAddressSorted {
@@ -87,7 +91,7 @@ func (l *Ledger) SearchByAddressPrefix(prefix []byte) []LedgerEntry {
 		// Collect all matches
 		for i := idx; i < len(l.Entries); i++ {
 			if bytes.HasPrefix(l.Entries[i].Address[:], prefix) {
-				results = append(results, l.Entries[i])
+				result.Entries = append(result.Entries, l.Entries[i])
 			} else if bytes.Compare(l.Entries[i].Address[:len(prefix)], prefix) > 0 {
 				// We've moved past potential matches
 				break
@@ -97,12 +101,56 @@ func (l *Ledger) SearchByAddressPrefix(prefix []byte) []LedgerEntry {
 		// Linear search if not sorted
 		for _, entry := range l.Entries {
 			if bytes.HasPrefix(entry.Address[:], prefix) {
-				results = append(results, entry)
+				result.Entries = append(result.Entries, entry)
 			}
 		}
 	}
 
-	return results
+	result.Size = uint64(len(result.Entries))
+	return result
+}
+
+// FilterBy returns a new Ledger with entries that meet the balance criteria
+// minBalance is the minimum balance required
+// maxBalance is the maximum balance allowed (-1 means no upper limit)
+func (l *Ledger) FilterBy(minBalance, maxBalance uint64) *Ledger {
+	result := &Ledger{
+		IsBalanceSorted: l.IsBalanceSorted,
+		IsAddressSorted: l.IsAddressSorted,
+	}
+
+	noUpperLimit := maxBalance == ^uint64(0) // Using max uint64 as the indicator for "no upper limit"
+
+	// If balance sorted, we can optimize the filtering
+	if l.IsBalanceSorted {
+		// Find the first entry with balance >= minBalance
+		startIdx := sort.Search(len(l.Entries), func(i int) bool {
+			return l.Entries[i].Balance >= minBalance
+		})
+
+		// If no upper limit, include all entries from startIdx
+		if noUpperLimit {
+			result.Entries = append(result.Entries, l.Entries[startIdx:]...)
+		} else {
+			// Find the first entry with balance > maxBalance
+			endIdx := sort.Search(len(l.Entries), func(i int) bool {
+				return l.Entries[i].Balance > maxBalance
+			})
+
+			// Include all entries from startIdx to endIdx-1
+			result.Entries = append(result.Entries, l.Entries[startIdx:endIdx]...)
+		}
+	} else {
+		// Linear search if not sorted by balance
+		for _, entry := range l.Entries {
+			if entry.Balance >= minBalance && (noUpperLimit || entry.Balance <= maxBalance) {
+				result.Entries = append(result.Entries, entry)
+			}
+		}
+	}
+
+	result.Size = uint64(len(result.Entries))
+	return result
 }
 
 // SearchByAddress searches for an entry with the exact address
@@ -174,7 +222,7 @@ func LoadLedgerFromFile(filepath string) (*Ledger, error) {
 	return ledger, nil
 }
 
-// SaveLedgerToFile saves the ledger to a file
+// SaveToFile saves the ledger to a file
 func (l *Ledger) SaveToFile(filepath string) error {
 	file, err := os.Create(filepath)
 	if err != nil {
@@ -204,7 +252,7 @@ func (l *Ledger) SaveToFile(filepath string) error {
 	return nil
 }
 
-// GetLedgerPartition returns a subset of the ledger from startIndex to endIndex (inclusive)
+// GetPartition returns a subset of the ledger from startIndex to endIndex (inclusive)
 func (l *Ledger) GetPartition(startIndex, endIndex uint64) (*Ledger, error) {
 	// Validate indices
 	if startIndex > endIndex || endIndex >= l.Size {
