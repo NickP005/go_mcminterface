@@ -1,4 +1,4 @@
-# MCMInterface v1.2.0
+# MCMInterface v1.2.1
 
 A production-ready Go library for interfacing with the Mochimo Network through the native socket/TCP protocol.
 Written by [NickP005](https://github.com/NickP005)

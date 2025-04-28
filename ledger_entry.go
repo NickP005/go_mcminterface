@@ -188,36 +188,50 @@ func LoadLedgerFromFile(filepath string) (*Ledger, error) {
 	}
 	defer file.Close()
 
-	// Create a new ledger
-	ledger := &Ledger{}
-
-	// Read the ledger header (size)
-	var size uint64
-	err = binary.Read(file, binary.LittleEndian, &size)
+	// Get file size to determine number of entries
+	fileInfo, err := file.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read ledger size: %w", err)
+		return nil, fmt.Errorf("failed to get ledger file info: %w", err)
 	}
-	ledger.Size = size
 
-	// Read each ledger entry
-	ledger.Entries = make([]LedgerEntry, size)
-	for i := uint64(0); i < size; i++ {
+	// Each ledger entry is ADDR_LEN (40) + 8 bytes for balance
+	entrySize := ADDR_LEN + 8
+	fileSize := fileInfo.Size()
+
+	// Verify file size is a multiple of entry size
+	if fileSize%int64(entrySize) != 0 {
+		return nil, fmt.Errorf("invalid ledger file size: %d is not a multiple of entry size %d", fileSize, entrySize)
+	}
+
+	numEntries := uint64(fileSize) / uint64(entrySize)
+
+	// Create a new ledger
+	ledger := &Ledger{
+		Size:            numEntries,
+		IsBalanceSorted: false,
+		IsAddressSorted: false,
+	}
+
+	// Allocate space for entries
+	ledger.Entries = make([]LedgerEntry, numEntries)
+
+	// Read entries directly from file
+	for i := uint64(0); i < numEntries; i++ {
 		var entry LedgerEntry
+
 		// Read address (ADDR_LEN bytes)
 		if _, err := io.ReadFull(file, entry.Address[:]); err != nil {
 			return nil, fmt.Errorf("failed to read address at entry %d: %w", i, err)
 		}
+
 		// Read balance (8 bytes)
 		err = binary.Read(file, binary.LittleEndian, &entry.Balance)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read balance at entry %d: %w", i, err)
 		}
+
 		ledger.Entries[i] = entry
 	}
-
-	// Ledger is not sorted initially
-	ledger.IsBalanceSorted = false
-	ledger.IsAddressSorted = false
 
 	return ledger, nil
 }
@@ -230,13 +244,7 @@ func (l *Ledger) SaveToFile(filepath string) error {
 	}
 	defer file.Close()
 
-	// Write the ledger size
-	err = binary.Write(file, binary.LittleEndian, l.Size)
-	if err != nil {
-		return fmt.Errorf("failed to write ledger size: %w", err)
-	}
-
-	// Write each ledger entry
+	// Write each ledger entry directly, with no header
 	for _, entry := range l.Entries {
 		// Write address (ADDR_LEN bytes)
 		if _, err := file.Write(entry.Address[:]); err != nil {
@@ -250,6 +258,16 @@ func (l *Ledger) SaveToFile(filepath string) error {
 	}
 
 	return nil
+}
+
+// SaveLedgerToFile saves the ledger to a file (package-level function for backward compatibility)
+func SaveLedgerToFile(ledger *Ledger, filepath string) error {
+	return ledger.SaveToFile(filepath)
+}
+
+// GetLedgerPartition returns a subset of the ledger from startIndex to endIndex (inclusive) (package-level function for backward compatibility)
+func (l *Ledger) GetLedgerPartition(startIndex, endIndex uint64) (*Ledger, error) {
+	return l.GetPartition(startIndex, endIndex)
 }
 
 // GetPartition returns a subset of the ledger from startIndex to endIndex (inclusive)
