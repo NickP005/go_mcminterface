@@ -150,3 +150,20 @@ func (bt *BTRAILER) GetBytes() []byte {
 
 	return bytes
 }
+
+// GetHaiku expands the nonce in the block trailer to return a haiku string
+// Uses the TRIGG algorithm to convert the tokenized nonce into readable haiku
+func (bt *BTRAILER) GetHaiku() string {
+	// The nonce contains two 16-byte haiku parts (total 32 bytes)
+	// First part: nonce[0:16] - first haiku
+	// Second part: nonce[16:32] - second haiku
+	
+	// Expand the first 16 bytes of the nonce
+	firstHaiku := TriggExpand(bt.Nonce[:16])
+	
+	// Expand the second 16 bytes of the nonce  
+	// secondHaiku := TriggExpand(bt.Nonce[16:32])
+	
+	// Combine both haikus with a separator
+	return firstHaiku
+}

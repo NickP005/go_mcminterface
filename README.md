@@ -1,4 +1,4 @@
-# MCMInterface v1.2.1
+# MCMInterface v1.2.2
 
 A production-ready Go library for interfacing with the Mochimo Network through the native socket/TCP protocol.
 Written by [NickP005](https://github.com/NickP005)
@@ -121,6 +121,9 @@ func QueryBlockFromNumber(block_num uint64) (Block, error)
 // Get block trailers for a range of blocks
 func QueryBTrailers(start_block uint32, count uint32) ([]BTRAILER, error)
 
+// Extract haiku from block trailer using TRIGG algorithm
+func (bt *BTRAILER) GetHaiku() string
+
 // Submit a transaction to the network
 func SubmitTransaction(tx TXENTRY) error
 ```
@@ -168,6 +171,25 @@ func (l *Ledger) SearchByAddress(address []byte) *LedgerEntry
 // Get ledger partition
 func (l *Ledger) GetLedgerPartition(startIndex, endIndex uint64) (*Ledger, error)
 ```
+
+## TRIGG Haiku System
+
+Mochimo's unique proof-of-work system generates haikus using the TRIGG algorithm. Each block's nonce contains tokenized haiku data that can be expanded into readable poetry:
+
+```go
+// Get a block and extract its haiku
+block, err := go_mcminterface.QueryBlockFromNumber(blockNum)
+if err != nil {
+    fmt.Println("Error:", err)
+    return
+}
+
+// Extract the haiku from the block trailer
+haiku := block.Trailer.GetHaiku()
+fmt.Printf("Block %d haiku:\n%s\n", blockNum, haiku)
+```
+
+The TRIGG algorithm uses classic AI techniques with a semantic grammar inspired by Basho's style to create meaningful haikus that serve as proof-of-work. Each haiku is generated from the block's nonce using a 256-word dictionary with semantic features.
 
 ## Transaction Building
 
@@ -274,6 +296,10 @@ func main() {
     // Display block information
     fmt.Printf("Block hash: %x\n", block.Trailer.Bhash)
     fmt.Printf("Block transactions: %d\n", len(block.Body))
+    
+    // Extract and display the TRIGG haiku from the block's nonce
+    haiku := block.Trailer.GetHaiku()
+    fmt.Printf("Block haiku:\n%s\n", haiku)
 }
 ```
 
